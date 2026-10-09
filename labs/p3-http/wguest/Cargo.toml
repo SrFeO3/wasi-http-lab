@@ -1,0 +1,13 @@
+[package]
+name = "wguest"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = { version = "0.62.0", features = ["async"] }
+# P3 bindings. Use with the `wasm32-wasip2` target (there is no stable
+# `wasm32-wasip3` target); requires Rust 1.90+.
+wasip3 = "0.9"

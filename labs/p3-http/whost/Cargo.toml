@@ -1,0 +1,12 @@
+[package]
+name = "whost"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.53.2", features = ["full"] }
+wasmtime = { version = "49.0.2", features = ["component-model", "component-model-async", "async"] }
+wasmtime-wasi = "49.0.2"
+# The `p3` feature is enabled by default since 49.0.0.
+wasmtime-wasi-http = "49.0.2"
+wit-bindgen = { version = "0.62.0", features = ["async"] }
