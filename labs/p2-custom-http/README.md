@@ -2,6 +2,7 @@
 
 Experimenting with a **custom** HTTP interface built on WASI Preview 2 (P2) for Wasm components.
 (Comparison target: wasi-p2-http-lab)
+(Three-way comparison: `labs/COMPARISON.md`)
 
 ## Overview
 This project explores the behavior of a custom HTTP interface built on top of WASI Preview 2 using a host (`whost`) and a guest (`wguest`) component.
@@ -18,14 +19,16 @@ This project explores the behavior of a custom HTTP interface built on top of WA
 ## HTTP GET Implementation Overview
 
 ### Wasm host (`whost`)
-```
-#[async_trait::async_trait]
+```rust
 impl http::Host for HostState {
-    async fn get(&mut self, url: String) -> String {
-        reqwest::get(url).await.unwrap().text().await.unwrap()
+    async fn get(&mut self, url: String) -> Result<String, String> {
+        let resp = reqwest::get(url).await.map_err(|e| e.to_string())?;
+        resp.text().await.map_err(|e| e.to_string())
     }
 }
 ```
+
+Errors are values (`result<string, string>`), never panics.
 
 ### Wasm guest (`wguest`)
 

@@ -6,7 +6,7 @@ interface dictionary-ops {
 }
 
 interface http {
-    get: func(url: string) -> string;
+    get: func(url: string) -> result<string, string>;
 }
 
 world mycustomwasm-world {
