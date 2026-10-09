@@ -2,11 +2,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use wasmtime::{Config, Engine, Result, Store};
 use wasmtime::component::{Component, HasSelf, Linker, bindgen};
-use wasmtime_wasi::{WasiCtx, WasiView, WasiCtxBuilder, ResourceTable, WasiCtxView};
-use wasmtime_wasi_http::WasiHttpCtx;
-use wasmtime_wasi_http::p2::{WasiHttpView, WasiHttpCtxView};
+use wasmtime::{Config, Engine, Result, Store};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
+use wasmtime_wasi_http::{WasiHttpCtx, WasiHttpCtxView, WasiHttpView};
 
 // WIT Bindings
 bindgen!({
@@ -26,23 +25,12 @@ struct HostState {
 }
 
 impl mywasm::demo::kv_ops::Host for HostState {
-    fn kv_set(
-        &mut self,
-        key: String,
-        value: String,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        async move {
-            self.kv.insert(key, value);
-        }
+    async fn kv_set(&mut self, key: String, value: String) {
+        self.kv.insert(key, value);
     }
 
-    fn kv_get(
-        &mut self,
-        key: String,
-    ) -> impl std::future::Future<Output = Option<String>> + Send {
-        async move {
-            self.kv.get(&key).cloned()
-        }
+    async fn kv_get(&mut self, key: String) -> Option<String> {
+        self.kv.get(&key).cloned()
     }
 }
 
@@ -121,14 +109,16 @@ async fn main() -> Result<()> {
     } else {
         println!("Host: [Cache Miss] Invoking guest for {}", target_url);
         // Dynamic URL specification
-        let res = bindings.call_webpage_inspector(&mut store, target_url).await?;
-        
+        let res = bindings
+            .call_webpage_inspector(&mut store, target_url)
+            .await?;
+
         // Store result in cache
         let mut cache_lock = cache.lock().expect("lock failed");
         cache_lock.insert(target_url.to_string(), res.clone());
         res
     };
-    
+
     println!("=== Response from localhost:8080 ===");
     println!("{}", result);
     println!("====================================");
@@ -139,8 +129,8 @@ async fn main() -> Result<()> {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use std::time::{Instant, Duration};
     use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_host_cache_integration() -> Result<()> {
@@ -163,18 +153,22 @@ mod tests {
         let component = Arc::new(Component::from_file(&engine, component_path)?);
 
         // Initial KV state
-        let kv = HashMap::from([
-            ("host-greeting".to_string(), "Greeting from Cache Test!".to_string()),
-        ]);
+        let kv = HashMap::from([(
+            "host-greeting".to_string(),
+            "Greeting from Cache Test!".to_string(),
+        )]);
 
         // 1. First Call: Cache Miss
-        let mut store1 = Store::new(&engine, HostState {
-            table: ResourceTable::new(),
-            ctx: WasiCtxBuilder::new().build(),
-            http_ctx: WasiHttpCtx::new(),
-            hooks: [],
-            kv: kv.clone(),
-        });
+        let mut store1 = Store::new(
+            &engine,
+            HostState {
+                table: ResourceTable::new(),
+                ctx: WasiCtxBuilder::new().build(),
+                http_ctx: WasiHttpCtx::new(),
+                hooks: [],
+                kv: kv.clone(),
+            },
+        );
         let bindings1 = MywasmWorld::instantiate_async(&mut store1, &component, &linker).await?;
 
         let result1 = {
@@ -182,23 +176,44 @@ mod tests {
             if let Some(data) = cached {
                 data
             } else {
-                let res = bindings1.call_webpage_inspector(&mut store1, target_url).await?;
-                cache.lock().unwrap().insert(target_url.to_string(), res.clone());
+                let res = bindings1
+                    .call_webpage_inspector(&mut store1, target_url)
+                    .await?;
+                cache
+                    .lock()
+                    .unwrap()
+                    .insert(target_url.to_string(), res.clone());
                 res
             }
         };
 
-        assert!(result1.starts_with("webpage-body-size is"), "Response must return body size format");
-        
+        assert!(
+            result1.starts_with("webpage-body-size is"),
+            "Response must return body size format"
+        );
+
         // Verify host hashtable interaction (Wasm guest should have written these)
         let state1 = store1.data();
-        assert_eq!(state1.kv.get("wasm-guest-exec-status").map(|s| s.as_str()), Some("success"));
-        assert_eq!(state1.kv.get("webpage-url").map(|s| s.as_str()), Some(target_url));
+        assert_eq!(
+            state1.kv.get("wasm-guest-exec-status").map(|s| s.as_str()),
+            Some("success")
+        );
+        assert_eq!(
+            state1.kv.get("webpage-url").map(|s| s.as_str()),
+            Some(target_url)
+        );
 
         // 2. Second Call: Cache Hit
         let cached_val = cache.lock().unwrap().get(target_url).cloned();
-        assert!(cached_val.is_some(), "Entry must exist in cache after first run");
-        assert_eq!(cached_val.unwrap(), result1, "Cached content must match first execution");
+        assert!(
+            cached_val.is_some(),
+            "Entry must exist in cache after first run"
+        );
+        assert_eq!(
+            cached_val.unwrap(),
+            result1,
+            "Cached content must match first execution"
+        );
 
         Ok(())
     }
@@ -206,11 +221,16 @@ mod tests {
     /// Helper to run Wasm guests concurrently.
     /// - If use_cache is false: Every request triggers a Wasm execution.
     /// - If use_cache is true: Subsequent requests hit the host-side cache.
-    async fn run_concurrent_requests(concurrency: usize, expected_min_duration: Duration, use_cache: bool, test_label: &str) -> Result<()> {
+    async fn run_concurrent_requests(
+        concurrency: usize,
+        expected_min_duration: Duration,
+        use_cache: bool,
+        test_label: &str,
+    ) -> Result<()> {
         let mut config = Config::new();
         config.wasm_component_model(true);
         let engine = Engine::new(&config)?;
-        
+
         let mut linker = Linker::new(&engine);
         linker.allow_shadowing(true);
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
@@ -227,21 +247,32 @@ mod tests {
         let component = Arc::new(component);
         let linker = Arc::new(linker);
 
-        let base_url = format!("http://localhost:8080/sleep/{}", expected_min_duration.as_secs());
+        let base_url = format!(
+            "http://localhost:8080/sleep/{}",
+            expected_min_duration.as_secs()
+        );
         let shared_url = format!("{}?test=cache-dummy", base_url);
 
         // Warm the cache if enabled
         if use_cache {
-            let mut store = Store::new(&engine, HostState {
-                table: ResourceTable::new(),
-                ctx: WasiCtxBuilder::new().build(),
-                http_ctx: WasiHttpCtx::new(),
-                hooks: [],
-                kv: HashMap::new(),
-            });
+            let mut store = Store::new(
+                &engine,
+                HostState {
+                    table: ResourceTable::new(),
+                    ctx: WasiCtxBuilder::new().build(),
+                    http_ctx: WasiHttpCtx::new(),
+                    hooks: [],
+                    kv: HashMap::new(),
+                },
+            );
             let bindings = MywasmWorld::instantiate_async(&mut store, &component, &linker).await?;
-            let result = bindings.call_webpage_inspector(&mut store, &shared_url).await?;
-            test_cache.lock().unwrap().insert(shared_url.clone(), result);
+            let result = bindings
+                .call_webpage_inspector(&mut store, &shared_url)
+                .await?;
+            test_cache
+                .lock()
+                .unwrap()
+                .insert(shared_url.clone(), result);
         }
 
         let mut handles = Vec::new();
@@ -261,8 +292,8 @@ mod tests {
                 let ctx = WasiCtxBuilder::new().build();
                 let http_ctx = WasiHttpCtx::new();
 
-                let host_ctx = HostState { 
-                    table, 
+                let host_ctx = HostState {
+                    table,
                     ctx,
                     http_ctx,
                     hooks: [],
@@ -273,7 +304,10 @@ mod tests {
                 let url = if use_cache {
                     s_url_full
                 } else if concurrency > 1 {
-                    format!("{}?id={}&total={}&test={}", b_url, task_id, concurrency, label)
+                    format!(
+                        "{}?id={}&total={}&test={}",
+                        b_url, task_id, concurrency, label
+                    )
                 } else {
                     format!("http://localhost:8080/index.html?test={}", label)
                 };
@@ -287,7 +321,8 @@ mod tests {
                 }
 
                 let task_start = Instant::now();
-                let bindings = MywasmWorld::instantiate_async(&mut store, &component, &linker).await?;
+                let bindings =
+                    MywasmWorld::instantiate_async(&mut store, &component, &linker).await?;
                 let result = bindings.call_webpage_inspector(&mut store, &url).await?;
                 let task_duration = task_start.elapsed();
 
@@ -295,7 +330,11 @@ mod tests {
                     test_cache.lock().unwrap().insert(url, result.clone());
                 }
 
-                assert!(!result.is_empty(), "Task {} failed. Unexpected empty response", task_id);
+                assert!(
+                    !result.is_empty(),
+                    "Task {} failed. Unexpected empty response",
+                    task_id
+                );
                 Ok(task_duration)
             });
             handles.push(handle);
@@ -309,7 +348,14 @@ mod tests {
 
         println!("\n--- Concurrency Test Statistics ---");
         println!("Test Label: {}", test_label);
-        println!("Cache mode: {}", if use_cache { "Enabled (Warmed)" } else { "Disabled" });
+        println!(
+            "Cache mode: {}",
+            if use_cache {
+                "Enabled (Warmed)"
+            } else {
+                "Disabled"
+            }
+        );
         println!("Concurrency level: {}", concurrency);
         println!("Total elapsed time: {:?}", elapsed);
 
@@ -328,10 +374,21 @@ mod tests {
             let parallel_efficiency_threshold = expected_min_duration.mul_f64(1.5); // Allow more overhead for tasks
 
             if !use_cache {
-                assert!(elapsed < serial_threshold, "Parallelism failed: Took {:?}", elapsed);
-                assert!(elapsed <= parallel_efficiency_threshold, "Efficiency failed: Took {:?}", elapsed);
+                assert!(
+                    elapsed < serial_threshold,
+                    "Parallelism failed: Took {:?}",
+                    elapsed
+                );
+                assert!(
+                    elapsed <= parallel_efficiency_threshold,
+                    "Efficiency failed: Took {:?}",
+                    elapsed
+                );
             } else {
-                assert!(elapsed < expected_min_duration, "Cache Hit should be faster than one network request");
+                assert!(
+                    elapsed < expected_min_duration,
+                    "Cache Hit should be faster than one network request"
+                );
             }
         }
 

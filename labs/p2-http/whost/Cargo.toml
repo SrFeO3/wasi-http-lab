@@ -1,11 +1,11 @@
 [package]
 name = "whost"
-version = "0.1.7"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 
 [dependencies]
-tokio = { version = "1.52", features = ["full", "rt", "macros"] }
-wasmtime = { version = "43.0.0", features = ["component-model", "async", "pooling-allocator"] }
-wasmtime-wasi = "43.0.0"
-wasmtime-wasi-http = "43.0.0"
-wit-bindgen = { version = "0.56.0", features = ["async"] }
+tokio = { version = "1.53.2", features = ["full"] }
+wasmtime = { version = "49.0.2", features = ["component-model", "async"] }
+wasmtime-wasi = "49.0.2"
+wasmtime-wasi-http = "49.0.2"
+wit-bindgen = { version = "0.62.0", features = ["async"] }

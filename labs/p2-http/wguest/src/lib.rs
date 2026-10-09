@@ -1,6 +1,8 @@
-use wasi::http::types::{Method, Scheme, OutgoingRequest, Headers};
-use wasi::http::outgoing_handler;
-use wasi::io::streams::StreamError;
+// Explicitly P2: bindings come from the `wasip2` crate (WASI 0.2.x),
+// not the P3 `wasip3` crate.
+use wasip2::http::outgoing_handler;
+use wasip2::http::types::{Headers, Method, OutgoingRequest, Scheme};
+use wasip2::io::streams::StreamError;
 use wit_bindgen::generate;
 
 use crate::mywasm::demo::kv_ops;
@@ -15,13 +17,17 @@ struct MyGuest;
 
 impl Guest for MyGuest {
     fn webpage_inspector(url: String) -> String {
-        // 1. Parse URL (Simple parsing logic) (Expected format: scheme://authority/path)
+        // 1. Parse URL with simple logic.
+        // Expected format: scheme://authority/path
         let (scheme_part, rest) = url.split_once("://").unwrap_or(("http", &url));
-        let (authority, path_part) = rest.split_once('/').map(|(a, p)| (a, format!("/{}", p))).unwrap_or((rest, "/".to_string()));
+        let (authority, path_part) = rest
+            .split_once('/')
+            .map(|(a, p)| (a, format!("/{}", p)))
+            .unwrap_or((rest, "/".to_string()));
 
         let scheme = match scheme_part.to_lowercase().as_str() {
             "https" => Scheme::Https,
-            "http" | _ => Scheme::Http,
+            _ => Scheme::Http,
         };
 
         // 2. Build Outgoing Request
@@ -37,7 +43,7 @@ impl Guest for MyGuest {
             Ok(f) => f,
             Err(e) => return format!("Failed to send request: {:?}", e),
         };
-        
+
         // 4. Block on Response Future
         future_resp.subscribe().block();
 
@@ -55,7 +61,7 @@ impl Guest for MyGuest {
             Err(_) => return "Failed to consume response body".to_string(),
         };
         let stream = body.stream().expect("Failed to get response stream");
-        
+
         let mut result_bytes = Vec::new();
 
         // 7. Read Stream to Buffer

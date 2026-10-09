@@ -1,12 +1,14 @@
 [package]
 name = "wguest"
-version = "0.1.7"
+version = "0.2.0"
 edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = { version = "0.56.0", features = ["async"] }
+wit-bindgen = { version = "0.62.0", features = ["async"] }
 
-wasi = "0.13.3"
+# Explicitly P2: the `wasip2` crate pins WASIp2 (WASI 0.2.x) bindings.
+# (The `wasi` crate is only a re-export of the latest stable WASI proposal.)
+wasip2 = "2"
