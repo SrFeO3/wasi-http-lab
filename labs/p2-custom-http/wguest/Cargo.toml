@@ -1,0 +1,10 @@
+[package]
+name = "wguest"
+version = "0.1.4"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = { version = "0.57", features = ["async"] }

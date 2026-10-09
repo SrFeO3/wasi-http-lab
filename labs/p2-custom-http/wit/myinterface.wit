@@ -1,0 +1,16 @@
+package mycustomwasm:demo;
+
+interface dictionary-ops {
+    dict-get: func(key: string) -> option<string>;
+    dict-set: func(key: string, value: string);
+}
+
+interface http {
+    get: func(url: string) -> string;
+}
+
+world mycustomwasm-world {
+    import dictionary-ops;
+    import http;
+    export webpageinspector: func(url: string);
+}
