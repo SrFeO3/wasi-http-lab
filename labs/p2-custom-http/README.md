@@ -2,7 +2,7 @@
 
 Experimenting with a **custom** HTTP interface built on WASI Preview 2 (P2) for Wasm components.
 (Comparison target: wasi-p2-http-lab)
-(Three-way comparison: `labs/COMPARISON.md`)
+(Four-way comparison: `labs/COMPARISON.md`)
 
 ## Overview
 This project explores the behavior of a custom HTTP interface built on top of WASI Preview 2 using a host (`whost`) and a guest (`wguest`) component.

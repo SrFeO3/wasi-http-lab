@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
     let bindings = MycustomwasmWorld::instantiate_async(&mut store, &component, &linker).await?;
 
     // 6. Execute Guest Export
-    let target_url = "http://localhost:8080/";
+    let target_url = "http://localhost:8080/test1.html";
     println!("Host: Requesting URL -> {}", target_url);
 
     bindings

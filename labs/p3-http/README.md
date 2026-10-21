@@ -25,7 +25,7 @@ component, but running on the P3 async component model.
 
 ## P2 -> P3 differences
 Moved to [`labs/COMPARISON.md`](../COMPARISON.md) (sections 2-3), which compares
-all three labs side by side: what is the same, what differs, whether code
+all four labs side by side: what is the same, what differs, whether code
 shrinks or grows, and what P3 newly enables.
 
 ## Setup & Execution

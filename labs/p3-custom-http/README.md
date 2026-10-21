@@ -3,7 +3,7 @@
 Experimenting with a **custom** HTTP interface on the WASI Preview 3 (P3)
 runtime for Wasm components.
 (Comparison targets: `labs/p2-custom-http`, `labs/p2-http`, `labs/p3-http`)
-(Three-way comparison: `labs/COMPARISON.md`)
+(Four-way comparison: `labs/COMPARISON.md`)
 
 ## Overview
 Same experiment as the P2 custom lab: a host (`whost`) plus a guest
@@ -29,8 +29,10 @@ an explicit security policy.
 
 ## Security policy (host)
 
-The p2-custom host (`reqwest::get(...).unwrap()`) has no policy: any URL
-goes through, failures panic the task. This lab fixes that explicitly:
+The p2-custom host (`reqwest::get(url)` with the default client) has no
+policy: any URL goes through with no allowlist, timeout, or size cap
+(request failures are still error values, not panics — see
+`labs/p2-custom-http/whost/src/main.rs`). This lab fixes that explicitly:
 
 1. Parse with the `url` crate, never with string matching.
 2. Allowlist the scheme (`http`, `https`).
